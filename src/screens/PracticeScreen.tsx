@@ -370,12 +370,13 @@ function initQState(q: Question): QState {
 export default function PracticeScreen() {
   const navigate = useNavigate()
   const location = useLocation()
-  const state = location.state as { levelIndex: number } | null
+  const state = location.state as { levelIndex: number; isPractice?: boolean } | null
 
   const muted = useAppStore((s) => s.muted)
   const deductHeart = useAppStore((s) => s.deductHeart)
 
   const levelIndex = state?.levelIndex ?? 0
+  const isPractice = state?.isPractice ?? false
   const level = course.levels[levelIndex]
   const questions = level.questions
 
@@ -446,6 +447,7 @@ export default function PracticeScreen() {
           levelId: level.id,
           wrongCount,
           totalQuestions: questions.length,
+          isPractice,
         },
       })
     } else {
@@ -479,6 +481,14 @@ export default function PracticeScreen() {
         <span className="text-xs font-extrabold text-ink-soft whitespace-nowrap">
           {qIndex + 1}/{questions.length}
         </span>
+        {isPractice && (
+          <span
+            className="text-xs font-extrabold rounded-full px-2 py-0.5 whitespace-nowrap"
+            style={{ background: 'var(--color-mint-soft)', color: 'var(--color-mint-deep)' }}
+          >
+            Harjoittelu
+          </span>
+        )}
       </div>
 
       {/* Scrollable question area */}

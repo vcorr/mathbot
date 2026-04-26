@@ -129,7 +129,7 @@ export default function LevelSelectScreen() {
                   <button
                     className="flex items-center gap-4 w-full text-left"
                     disabled={isLocked}
-                    onClick={() => navigate('/practice', { state: { levelIndex: i } })}
+                    onClick={() => navigate('/practice', { state: { levelIndex: i, isPractice: isCompleted } })}
                   >
                     <div
                       className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-black text-white flex-shrink-0"

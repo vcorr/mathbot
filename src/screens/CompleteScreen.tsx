@@ -8,6 +8,7 @@ interface CompleteState {
   levelId: string
   wrongCount: number
   totalQuestions: number
+  isPractice?: boolean
 }
 
 function Stars({ count }: { count: number }) {
@@ -67,10 +68,10 @@ export default function CompleteScreen() {
     if (appliedRef.current) return
     appliedRef.current = true
 
-    const { levelIndex, levelId, wrongCount, totalQuestions } = state
+    const { levelIndex, levelId, wrongCount, totalQuestions, isPractice } = state
     const correctCount = totalQuestions - wrongCount
     const stars = wrongCount === 0 ? 3 : wrongCount === 1 ? 2 : 1
-    const xpEarned = correctCount * 10
+    const xpEarned = correctCount * (isPractice ? 5 : 10)
     const today = getHelsinkilDate()
     const yesterday = getHelsinkilDate(new Date(Date.now() - 86_400_000))
 
@@ -83,8 +84,8 @@ export default function CompleteScreen() {
     }
     updateLevelStat(levelId, newStat)
 
-    // Unlock next level
-    if (levelIndex + 1 > unlockedUpTo) setUnlockedUpTo(levelIndex + 1)
+    // Unlock next level (no-op in practice mode, already unlocked)
+    if (!isPractice && levelIndex + 1 > unlockedUpTo) setUnlockedUpTo(levelIndex + 1)
 
     // XP
     addXp(xpEarned, today)
@@ -102,7 +103,7 @@ export default function CompleteScreen() {
 
       const store = useAppStore.getState()
       saveProgress(uid, {
-        unlockedUpTo: Math.max(levelIndex + 1, unlockedUpTo),
+        unlockedUpTo: isPractice ? unlockedUpTo : Math.max(levelIndex + 1, unlockedUpTo),
         totalXp: store.totalXp + xpEarned,
         dailyXp: store.dailyXpDate === today ? store.dailyXp + xpEarned : xpEarned,
         dailyXpDate: today,
@@ -116,19 +117,23 @@ export default function CompleteScreen() {
 
   if (!state) return null
 
-  const { wrongCount, totalQuestions } = state
+  const { wrongCount, totalQuestions, isPractice } = state
   const correctCount = totalQuestions - wrongCount
   const accuracy = Math.round((correctCount / totalQuestions) * 100)
-  const xpEarned = correctCount * 10
+  const xpEarned = correctCount * (isPractice ? 5 : 10)
   const stars = wrongCount === 0 ? 3 : wrongCount === 1 ? 2 : 1
 
   return (
     <div className="flex flex-col min-h-full items-center justify-center px-6 py-10 gap-8">
       <div className="text-center">
-        <div className="text-6xl mb-3">👑</div>
-        <h1 className="text-2xl font-black text-ink">Hienoa! Taso suoritettu!</h1>
+        <div className="text-6xl mb-3">{isPractice ? '🔁' : '👑'}</div>
+        <h1 className="text-2xl font-black text-ink">
+          {isPractice ? 'Harjoittelu suoritettu!' : 'Hienoa! Taso suoritettu!'}
+        </h1>
         <p className="text-sm text-ink-soft font-extrabold mt-2">
-          Olet nyt lähempänä koordinaattigeometrian hallintaa.
+          {isPractice
+            ? 'Harjoittelusta saat puolet XP:stä.'
+            : 'Olet nyt lähempänä koordinaattigeometrian hallintaa.'}
         </p>
       </div>
 

@@ -3,6 +3,8 @@ import {
   getAuth,
   onAuthStateChanged,
   signInAnonymously,
+  GoogleAuthProvider,
+  linkWithPopup,
   type Auth,
   type User,
 } from 'firebase/auth'
@@ -53,6 +55,22 @@ export async function ensureAnonymousSignIn(): Promise<User | null> {
   if (auth.currentUser) return auth.currentUser
   const credential = await signInAnonymously(auth)
   return credential.user
+}
+
+export function isGoogleLinked(): boolean {
+  return auth?.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false
+}
+
+export async function linkGoogleAccount(): Promise<{ ok: boolean; error?: string }> {
+  if (!auth?.currentUser) return { ok: false, error: 'not-signed-in' }
+  if (isGoogleLinked()) return { ok: true }
+  try {
+    await linkWithPopup(auth.currentUser, new GoogleAuthProvider())
+    return { ok: true }
+  } catch (e: unknown) {
+    const code = (e as { code?: string })?.code ?? 'unknown'
+    return { ok: false, error: code }
+  }
 }
 
 // ─── Progress types ────────────────────────────────────────────────────────
