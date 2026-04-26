@@ -47,6 +47,7 @@ export default function LevelSelectScreen() {
 
   const levels = course.levels
   const dailyProgress = Math.min(1, dailyXp / dailyGoal)
+  const courseComplete = unlockedUpTo >= levels.length
 
   return (
     <div className="flex flex-col min-h-full">
@@ -161,6 +162,23 @@ export default function LevelSelectScreen() {
             )
           })}
         </div>
+
+        {/* Course complete banner */}
+        {courseComplete && (
+          <div
+            className="mt-8 rounded-2xl p-5 text-center"
+            style={{ background: 'var(--color-mint-soft)', border: '2px solid var(--color-mint)' }}
+          >
+            <div className="text-4xl mb-2">🎓</div>
+            <div className="font-black text-lg text-ink">Kurssi suoritettu!</div>
+            <div className="text-sm text-ink-soft mt-1">
+              Olet käynyt läpi kaikki kulmakertoimeen liittyvät aiheet.
+            </div>
+            <div className="mt-3 text-2xl font-black" style={{ color: 'var(--color-mint-deep)' }}>
+              {totalXp} XP yhteensä
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

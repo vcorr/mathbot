@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '../lib/store'
 import { saveProgress, saveLevelStat, getHelsinkilDate } from '../lib/firebase'
+import { course } from '../courses/kulmakerroin'
 
 interface CompleteState {
   levelIndex: number
@@ -117,23 +118,32 @@ export default function CompleteScreen() {
 
   if (!state) return null
 
-  const { wrongCount, totalQuestions, isPractice } = state
+  const { levelIndex, wrongCount, totalQuestions, isPractice } = state
   const correctCount = totalQuestions - wrongCount
   const accuracy = Math.round((correctCount / totalQuestions) * 100)
   const xpEarned = correctCount * (isPractice ? 5 : 10)
   const stars = wrongCount === 0 ? 3 : wrongCount === 1 ? 2 : 1
+  const isFinalLevel = !isPractice && levelIndex === course.levels.length - 1
 
   return (
     <div className="flex flex-col min-h-full items-center justify-center px-6 py-10 gap-8">
       <div className="text-center">
-        <div className="text-6xl mb-3">{isPractice ? '🔁' : '👑'}</div>
+        <div className="text-6xl mb-3">
+          {isPractice ? '🔁' : isFinalLevel ? '🎓' : '👑'}
+        </div>
         <h1 className="text-2xl font-black text-ink">
-          {isPractice ? 'Harjoittelu suoritettu!' : 'Hienoa! Taso suoritettu!'}
+          {isPractice
+            ? 'Harjoittelu suoritettu!'
+            : isFinalLevel
+              ? 'Kurssi suoritettu!'
+              : 'Hienoa! Taso suoritettu!'}
         </h1>
         <p className="text-sm text-ink-soft font-extrabold mt-2">
           {isPractice
             ? 'Harjoittelusta saat puolet XP:stä.'
-            : 'Olet nyt lähempänä koordinaattigeometrian hallintaa.'}
+            : isFinalLevel
+              ? 'Olet käynyt läpi kaikki kulmakertoimeen liittyvät aiheet. Mahtavaa!'
+              : 'Olet nyt lähempänä koordinaattigeometrian hallintaa.'}
         </p>
       </div>
 
