@@ -1,0 +1,5 @@
+dist
+node_modules
+_scaffold
+*.lock
+package-lock.json

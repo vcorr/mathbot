@@ -1,0 +1,26 @@
+{
+  "name": "mathbot",
+  "short_name": "mathbot",
+  "description": "Matikkapeli yläkoululaisille",
+  "start_url": "/mathbot/",
+  "scope": "/mathbot/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf8f1",
+  "theme_color": "#fbf8f1",
+  "lang": "fi",
+  "icons": [
+    {
+      "src": "/mathbot/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/mathbot/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
