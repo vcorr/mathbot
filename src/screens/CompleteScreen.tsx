@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAppStore } from '../lib/store'
+import { saveProgress, saveLevelStat, getHelsinkilDate } from '../lib/firebase'
 
 interface CompleteState {
   levelIndex: number
@@ -28,15 +29,7 @@ function Stars({ count }: { count: number }) {
   )
 }
 
-function StatTile({
-  label,
-  value,
-  accent,
-}: {
-  label: string
-  value: string
-  accent: string
-}) {
+function StatTile({ label, value, accent }: { label: string; value: string; accent: string }) {
   return (
     <div
       className="flex-1 rounded-2xl p-4 text-center"
@@ -55,19 +48,22 @@ export default function CompleteScreen() {
   const location = useLocation()
   const state = location.state as CompleteState | null
 
+  const uid = useAppStore((s) => s.uid)
   const updateLevelStat = useAppStore((s) => s.updateLevelStat)
   const setUnlockedUpTo = useAppStore((s) => s.setUnlockedUpTo)
   const addXp = useAppStore((s) => s.addXp)
-  const unlockedUpTo = useAppStore((s) => s.unlockedUpTo)
+  const setStreak = useAppStore((s) => s.setStreak)
   const levelStats = useAppStore((s) => s.levelStats)
+  const unlockedUpTo = useAppStore((s) => s.unlockedUpTo)
+  const streak = useAppStore((s) => s.streak)
+  const lastPlayedDate = useAppStore((s) => s.lastPlayedDate)
+  const hearts = useAppStore((s) => s.hearts)
+  const heartsLastRegen = useAppStore((s) => s.heartsLastRegen)
 
   const appliedRef = useRef(false)
 
   useEffect(() => {
-    if (!state) {
-      navigate('/', { replace: true })
-      return
-    }
+    if (!state) { navigate('/', { replace: true }); return }
     if (appliedRef.current) return
     appliedRef.current = true
 
@@ -75,19 +71,47 @@ export default function CompleteScreen() {
     const correctCount = totalQuestions - wrongCount
     const stars = wrongCount === 0 ? 3 : wrongCount === 1 ? 2 : 1
     const xpEarned = correctCount * 10
+    const today = getHelsinkilDate()
+    const yesterday = getHelsinkilDate(new Date(Date.now() - 86_400_000))
 
+    // Update levelStat (best stars)
     const existing = levelStats[levelId]
-    updateLevelStat(levelId, {
+    const newStat = {
       stars: Math.max(stars, existing?.stars ?? 0),
       attempts: (existing?.attempts ?? 0) + 1,
       bestCorrect: Math.max(correctCount, existing?.bestCorrect ?? 0),
-    })
+    }
+    updateLevelStat(levelId, newStat)
 
-    if (levelIndex + 1 > unlockedUpTo) {
-      setUnlockedUpTo(levelIndex + 1)
+    // Unlock next level
+    if (levelIndex + 1 > unlockedUpTo) setUnlockedUpTo(levelIndex + 1)
+
+    // XP
+    addXp(xpEarned, today)
+
+    // Streak
+    let newStreak = streak
+    if (lastPlayedDate !== today) {
+      newStreak = lastPlayedDate === yesterday ? streak + 1 : 1
+      setStreak(newStreak, today)
     }
 
-    addXp(xpEarned)
+    // Sync to Firestore (fire-and-forget, offline-safe)
+    if (uid) {
+      saveLevelStat(uid, levelId, newStat)
+
+      const store = useAppStore.getState()
+      saveProgress(uid, {
+        unlockedUpTo: Math.max(levelIndex + 1, unlockedUpTo),
+        totalXp: store.totalXp + xpEarned,
+        dailyXp: store.dailyXpDate === today ? store.dailyXp + xpEarned : xpEarned,
+        dailyXpDate: today,
+        streak: newStreak,
+        lastPlayedDate: today,
+        hearts,
+        heartsLastRegen,
+      })
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!state) return null
@@ -100,7 +124,6 @@ export default function CompleteScreen() {
 
   return (
     <div className="flex flex-col min-h-full items-center justify-center px-6 py-10 gap-8">
-      {/* Crown + heading */}
       <div className="text-center">
         <div className="text-6xl mb-3">👑</div>
         <h1 className="text-2xl font-black text-ink">Hienoa! Taso suoritettu!</h1>
@@ -109,22 +132,16 @@ export default function CompleteScreen() {
         </p>
       </div>
 
-      {/* Stars */}
       <Stars count={stars} />
 
-      {/* Stat tiles */}
       <div className="flex gap-3 w-full">
         <StatTile label="XP" value={`+${xpEarned}`} accent="var(--color-gold)" />
         <StatTile label="Tarkkuus" value={`${accuracy}%`} accent="var(--color-mint-deep)" />
       </div>
 
-      {/* Jatka button */}
       <button
         className="w-full rounded-2xl py-4 text-base font-black text-white"
-        style={{
-          background: 'var(--color-mint)',
-          boxShadow: '0 4px 0 var(--color-mint-d)',
-        }}
+        style={{ background: 'var(--color-mint)', boxShadow: '0 4px 0 var(--color-mint-d)' }}
         onClick={() => navigate('/')}
       >
         Jatka

@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { useAppStore } from '../lib/store'
+import { playCorrect, playWrong, hapticWrong } from '../lib/audio'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   DndContext,
@@ -370,6 +372,9 @@ export default function PracticeScreen() {
   const location = useLocation()
   const state = location.state as { levelIndex: number } | null
 
+  const muted = useAppStore((s) => s.muted)
+  const deductHeart = useAppStore((s) => s.deductHeart)
+
   const levelIndex = state?.levelIndex ?? 0
   const level = course.levels[levelIndex]
   const questions = level.questions
@@ -420,7 +425,14 @@ export default function PracticeScreen() {
         (slider, i) => Math.abs((qState.sliderValues[i] ?? slider.min) - slider.target) <= slider.tolerance,
       )
     }
-    if (!correct) setWrongCount((w) => w + 1)
+    if (correct) {
+      playCorrect(muted)
+    } else {
+      playWrong(muted)
+      hapticWrong()
+      deductHeart()
+      setWrongCount((w) => w + 1)
+    }
     setIsCorrect(correct)
     setShowFeedback(true)
   }
