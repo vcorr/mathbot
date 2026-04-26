@@ -5,6 +5,8 @@ import {
   signInAnonymously,
   GoogleAuthProvider,
   linkWithPopup,
+  signInWithCredential,
+  type AuthError,
   type Auth,
   type User,
 } from 'firebase/auth'
@@ -61,15 +63,31 @@ export function isGoogleLinked(): boolean {
   return auth?.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false
 }
 
-export async function linkGoogleAccount(): Promise<{ ok: boolean; error?: string }> {
+export async function linkGoogleAccount(): Promise<{ ok: boolean; recovered?: boolean; error?: string }> {
   if (!auth?.currentUser) return { ok: false, error: 'not-signed-in' }
   if (isGoogleLinked()) return { ok: true }
   try {
     await linkWithPopup(auth.currentUser, new GoogleAuthProvider())
     return { ok: true }
   } catch (e: unknown) {
-    const code = (e as { code?: string })?.code ?? 'unknown'
-    return { ok: false, error: code }
+    const err = e as AuthError
+    // Google account already linked to a previous UID (e.g. after reinstall).
+    // Sign in with that credential so the user recovers their old progress.
+    if (err.code === 'auth/credential-already-in-use') {
+      const credential = GoogleAuthProvider.credentialFromError(err)
+      if (credential) {
+        try {
+          await signInWithCredential(auth, credential)
+          return { ok: true, recovered: true }
+        } catch {
+          // fall through to generic error
+        }
+      }
+    }
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+      return { ok: false, error: err.code }
+    }
+    return { ok: false, error: err.code ?? 'unknown' }
   }
 }
 
