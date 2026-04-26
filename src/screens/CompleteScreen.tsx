@@ -59,8 +59,6 @@ export default function CompleteScreen() {
   const unlockedUpTo = useAppStore((s) => s.unlockedUpTo)
   const streak = useAppStore((s) => s.streak)
   const lastPlayedDate = useAppStore((s) => s.lastPlayedDate)
-  const hearts = useAppStore((s) => s.hearts)
-  const heartsLastRegen = useAppStore((s) => s.heartsLastRegen)
 
   const appliedRef = useRef(false)
 
@@ -92,26 +90,26 @@ export default function CompleteScreen() {
     addXp(xpEarned, today)
 
     // Streak
-    let newStreak = streak
     if (lastPlayedDate !== today) {
-      newStreak = lastPlayedDate === yesterday ? streak + 1 : 1
+      const newStreak = lastPlayedDate === yesterday ? streak + 1 : 1
       setStreak(newStreak, today)
     }
 
     // Sync to Firestore (fire-and-forget, offline-safe)
+    // Read state AFTER all mutations so we save the correct post-update values.
     if (uid) {
       saveLevelStat(uid, levelId, newStat)
 
       const store = useAppStore.getState()
       saveProgress(uid, {
-        unlockedUpTo: isPractice ? unlockedUpTo : Math.max(levelIndex + 1, unlockedUpTo),
-        totalXp: store.totalXp + xpEarned,
-        dailyXp: store.dailyXpDate === today ? store.dailyXp + xpEarned : xpEarned,
-        dailyXpDate: today,
-        streak: newStreak,
-        lastPlayedDate: today,
-        hearts,
-        heartsLastRegen,
+        unlockedUpTo: store.unlockedUpTo,
+        totalXp: store.totalXp,
+        dailyXp: store.dailyXp,
+        dailyXpDate: store.dailyXpDate,
+        streak: store.streak,
+        lastPlayedDate: store.lastPlayedDate,
+        hearts: store.hearts,
+        heartsLastRegen: store.heartsLastRegen,
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
