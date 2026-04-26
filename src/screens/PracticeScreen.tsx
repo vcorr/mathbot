@@ -13,36 +13,102 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { course } from '../courses/kulmakerroin'
-import type { MatchQuestion, SliderQuestion, TapQuestion, Question } from '../courses/types'
+import type {
+  MatchQuestion,
+  SliderQuestion,
+  TapQuestion,
+  DualSliderQuestion,
+  Question,
+} from '../courses/types'
+
+// ─── Diagram imports (module-level to satisfy static-components rule) ────────
 import CoordDiagram from '../components/diagrams/CoordDiagram'
 import CoordSliderDiagram from '../components/diagrams/CoordSliderDiagram'
+import RiseRunDiagram from '../components/diagrams/RiseRunDiagram'
+import ThreeLinesDiagram from '../components/diagrams/ThreeLinesDiagram'
+import TwoPointDiagram from '../components/diagrams/TwoPointDiagram'
+import LinearDiagram from '../components/diagrams/LinearDiagram'
+import GradientSliderDiagram from '../components/diagrams/GradientSliderDiagram'
+import LinearShiftDiagram from '../components/diagrams/LinearShiftDiagram'
 
-// ─── Diagram renderer — declared at module level to satisfy static-components rule ──
+// ─── Central diagram renderer (module-level component) ───────────────────────
 
 function QuestionDiagram({
   diagramKey,
   diagramProps = {},
   sliderValue = 0,
+  sliderValues = [],
 }: {
   diagramKey: string
   diagramProps?: Record<string, unknown>
   sliderValue?: number
+  sliderValues?: number[]
 }) {
-  if (diagramKey === 'coord') {
-    return (
-      <CoordDiagram
-        point={diagramProps.point as [number, number] | undefined}
-        pointLabel={diagramProps.pointLabel as string | undefined}
-        highlightQuadrant={diagramProps.highlightQuadrant as number | undefined}
-        showQuadrantLabels={diagramProps.showQuadrantLabels as boolean | undefined}
-      />
-    )
+  switch (diagramKey) {
+    case 'coord':
+      return (
+        <CoordDiagram
+          point={diagramProps.point as [number, number] | undefined}
+          pointLabel={diagramProps.pointLabel as string | undefined}
+          highlightQuadrant={diagramProps.highlightQuadrant as number | undefined}
+          showQuadrantLabels={diagramProps.showQuadrantLabels as boolean | undefined}
+        />
+      )
+    case 'coord-slider':
+      return <CoordSliderDiagram value={sliderValue} />
+    case 'rise-run':
+      return (
+        <RiseRunDiagram
+          rise={diagramProps.rise as number ?? 3}
+          run={diagramProps.run as number ?? 2}
+        />
+      )
+    case 'three-lines':
+      return (
+        <ThreeLinesDiagram
+          lines={diagramProps.lines as React.ComponentProps<typeof ThreeLinesDiagram>['lines']}
+        />
+      )
+    case 'two-point':
+      return (
+        <TwoPointDiagram
+          A={diagramProps.A as [number, number]}
+          B={diagramProps.B as [number, number]}
+        />
+      )
+    case 'linear': {
+      // For dual-slider questions, k and b come from sliderValues
+      const k = sliderValues.length >= 1 ? sliderValues[0] : (diagramProps.k as number ?? 1)
+      const b = sliderValues.length >= 2 ? sliderValues[1] : (diagramProps.b as number ?? 0)
+      return (
+        <LinearDiagram
+          k={k}
+          b={b}
+          targetPoints={diagramProps.targetPoints as [number, number][] | undefined}
+        />
+      )
+    }
+    case 'gradient-slider':
+      return (
+        <GradientSliderDiagram
+          value={sliderValue}
+          pivot={diagramProps.pivot as [number, number] | undefined}
+        />
+      )
+    case 'linear-shift':
+      return (
+        <LinearShiftDiagram
+          k={diagramProps.k as number ?? 1}
+          value={sliderValue}
+        />
+      )
+    default:
+      return null
   }
-  if (diagramKey === 'coord-slider') {
-    return <CoordSliderDiagram value={sliderValue} />
-  }
-  return null
 }
+
+// React import needed for JSX in QuestionDiagram switch
+import React from 'react'
 
 // ─── Draggable chip ─────────────────────────────────────────────────────────
 
@@ -167,18 +233,12 @@ function TapWidget({
 
         if (revealed) {
           if (i === question.correct) {
-            borderColor = 'var(--color-mint)'
-            bg = 'var(--color-mint-soft)'
-            textColor = 'var(--color-mint-deep)'
+            borderColor = 'var(--color-mint)'; bg = 'var(--color-mint-soft)'; textColor = 'var(--color-mint-deep)'
           } else if (i === selected) {
-            borderColor = 'var(--color-coral)'
-            bg = '#ffe1e1'
-            textColor = 'var(--color-coral-d)'
+            borderColor = 'var(--color-coral)'; bg = '#ffe1e1'; textColor = 'var(--color-coral-d)'
           }
         } else if (selected === i) {
-          borderColor = 'var(--color-mint)'
-          bg = 'var(--color-mint-soft)'
-          textColor = 'var(--color-mint-deep)'
+          borderColor = 'var(--color-mint)'; bg = 'var(--color-mint-soft)'; textColor = 'var(--color-mint-deep)'
         }
 
         return (
@@ -208,9 +268,14 @@ function SliderWidget({
   value: number
   onChange: (v: number) => void
 }) {
+  const vStr = value % 1 === 0 ? String(value) : value.toFixed(1)
   return (
     <div className="flex flex-col gap-4">
-      <QuestionDiagram diagramKey={question.diagram} diagramProps={question.diagramProps} sliderValue={value} />
+      <QuestionDiagram
+        diagramKey={question.diagram}
+        diagramProps={question.diagramProps}
+        sliderValue={value}
+      />
       <div className="flex flex-col gap-2 px-2">
         <input
           type="range"
@@ -224,9 +289,55 @@ function SliderWidget({
         />
         <div className="flex justify-between text-xs text-ink-soft font-extrabold">
           <span>{question.min}</span>
+          <span className="font-black text-ink">{vStr}</span>
           <span>{question.max}</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Dual-slider widget ───────────────────────────────────────────────────────
+
+function DualSliderWidget({
+  question,
+  values,
+  onChange,
+}: {
+  question: DualSliderQuestion
+  values: number[]
+  onChange: (idx: number, v: number) => void
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Diagram updates live with both k and b */}
+      <QuestionDiagram
+        diagramKey={question.diagram}
+        diagramProps={question.diagramProps}
+        sliderValues={values}
+      />
+      {question.sliders.map((slider, idx) => {
+        const v = values[idx] ?? slider.min
+        const vStr = v % 1 === 0 ? String(v) : v.toFixed(1)
+        return (
+          <div key={idx} className="flex flex-col gap-1 px-2">
+            <div className="flex justify-between text-xs font-extrabold text-ink-soft">
+              <span>{slider.label}</span>
+              <span className="text-ink">{vStr}</span>
+            </div>
+            <input
+              type="range"
+              min={slider.min}
+              max={slider.max}
+              step={slider.step}
+              value={v}
+              onChange={(e) => onChange(idx, Number(e.target.value))}
+              className="w-full"
+              style={{ accentColor: 'var(--color-mint)' }}
+            />
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -237,6 +348,7 @@ interface QState {
   selectedOption: number | null
   slots: (number | null)[]
   sliderValue: number
+  sliderValues: number[]
 }
 
 function initQState(q: Question): QState {
@@ -244,6 +356,10 @@ function initQState(q: Question): QState {
     selectedOption: null,
     slots: q.type === 'match' ? Array((q as MatchQuestion).targets.length).fill(null) : [],
     sliderValue: q.type === 'slider' ? (q as SliderQuestion).min : 0,
+    sliderValues:
+      q.type === 'dual-slider'
+        ? (q as DualSliderQuestion).sliders.map((s) => s.min)
+        : [],
   }
 }
 
@@ -288,7 +404,7 @@ export default function PracticeScreen() {
   function canSubmit(): boolean {
     if (q.type === 'tap' || q.type === 'solve') return qState.selectedOption !== null
     if (q.type === 'match') return qState.slots.every((s) => s !== null)
-    return true
+    return true // slider / dual-slider always submittable
   }
 
   function handleSubmit() {
@@ -299,6 +415,10 @@ export default function PracticeScreen() {
       correct = q.correct.every((chipIdx, targetIdx) => qState.slots[targetIdx] === chipIdx)
     } else if (q.type === 'slider') {
       correct = Math.abs(qState.sliderValue - q.target) <= q.tolerance
+    } else if (q.type === 'dual-slider') {
+      correct = q.sliders.every(
+        (slider, i) => Math.abs((qState.sliderValues[i] ?? slider.min) - slider.target) <= slider.tolerance,
+      )
     }
     if (!correct) setWrongCount((w) => w + 1)
     setIsCorrect(correct)
@@ -357,8 +477,8 @@ export default function PracticeScreen() {
 
         <p className="text-xl font-extrabold text-ink mb-5 leading-snug">{q.prompt}</p>
 
-        {/* Diagram (not for slider — SliderWidget renders its own) */}
-        {q.type !== 'slider' && q.diagram && (
+        {/* Static diagram (tap/solve/match, not for slider types which handle their own) */}
+        {q.type !== 'slider' && q.type !== 'dual-slider' && q.diagram && (
           <div className="mb-5">
             <QuestionDiagram diagramKey={q.diagram} diagramProps={q.diagramProps} />
           </div>
@@ -373,16 +493,27 @@ export default function PracticeScreen() {
             onSelect={(i) => setQState((s) => ({ ...s, selectedOption: i }))}
           />
         )}
-
         {q.type === 'match' && (
           <MatchWidget question={q} slots={qState.slots} onDragEnd={handleDragEnd} />
         )}
-
         {q.type === 'slider' && (
           <SliderWidget
             question={q}
             value={qState.sliderValue}
             onChange={(v) => setQState((s) => ({ ...s, sliderValue: v }))}
+          />
+        )}
+        {q.type === 'dual-slider' && (
+          <DualSliderWidget
+            question={q}
+            values={qState.sliderValues}
+            onChange={(idx, v) =>
+              setQState((s) => {
+                const sv = [...s.sliderValues]
+                sv[idx] = v
+                return { ...s, sliderValues: sv }
+              })
+            }
           />
         )}
 
@@ -393,16 +524,8 @@ export default function PracticeScreen() {
               className="w-full rounded-2xl py-4 text-base font-black"
               style={
                 canSubmit()
-                  ? {
-                      background: 'var(--color-mint)',
-                      boxShadow: '0 4px 0 var(--color-mint-d)',
-                      color: 'white',
-                    }
-                  : {
-                      background: 'var(--color-line)',
-                      boxShadow: '0 4px 0 #c9c0ae',
-                      color: 'var(--color-ink-soft)',
-                    }
+                  ? { background: 'var(--color-mint)', boxShadow: '0 4px 0 var(--color-mint-d)', color: 'white' }
+                  : { background: 'var(--color-line)', boxShadow: '0 4px 0 #c9c0ae', color: 'var(--color-ink-soft)' }
               }
               disabled={!canSubmit()}
               onClick={handleSubmit}

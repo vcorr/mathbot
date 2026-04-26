@@ -32,7 +32,25 @@ export type SliderQuestion = {
   selitys: string;
 };
 
-export type Question = TapQuestion | MatchQuestion | SliderQuestion;
+export type DualSliderSlider = {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  target: number;
+  tolerance: number;
+};
+
+export type DualSliderQuestion = {
+  type: 'dual-slider';
+  prompt: string;
+  diagram: string;
+  diagramProps?: Record<string, unknown>;
+  sliders: [DualSliderSlider, DualSliderSlider];
+  selitys: string;
+};
+
+export type Question = TapQuestion | MatchQuestion | SliderQuestion | DualSliderQuestion;
 
 export interface Level {
   id: string;
