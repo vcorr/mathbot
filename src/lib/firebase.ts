@@ -10,9 +10,12 @@ import {
   getFirestore,
   doc,
   setDoc,
+  getDoc,
   serverTimestamp,
   type Firestore,
+  type Timestamp,
 } from 'firebase/firestore'
+import type { LevelStat } from './store'
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -52,16 +55,89 @@ export async function ensureAnonymousSignIn(): Promise<User | null> {
   return credential.user
 }
 
+// ─── Progress types ────────────────────────────────────────────────────────
+
+export interface FirestoreProgress {
+  unlockedUpTo: number
+  totalXp: number
+  dailyXp: number
+  dailyXpDate: string       // YYYY-MM-DD Helsinki time
+  streak: number
+  lastPlayedDate: string    // YYYY-MM-DD Helsinki time
+  hearts: number
+  heartsLastRegen: string   // ISO timestamp
+}
+
+export interface FirestoreUserDoc {
+  progress?: Partial<FirestoreProgress>
+  levelStats?: Record<string, LevelStat>
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+export function getHelsinkilDate(d = new Date()): string {
+  return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Helsinki' })
+}
+
+/** Apply hearts regen: 1 heart per 30 min elapsed, max 5. */
+export function applyHeartsRegen(
+  hearts: number,
+  heartsLastRegenISO: string,
+  now = new Date(),
+): { hearts: number; heartsLastRegen: string } {
+  if (hearts >= 5) return { hearts, heartsLastRegen: heartsLastRegenISO }
+  const last = new Date(heartsLastRegenISO)
+  const minutesPassed = (now.getTime() - last.getTime()) / 60_000
+  const regensEarned = Math.floor(minutesPassed / 30)
+  if (regensEarned <= 0) return { hearts, heartsLastRegen: heartsLastRegenISO }
+  const newHearts = Math.min(5, hearts + regensEarned)
+  const newLast = new Date(last.getTime() + regensEarned * 30 * 60_000)
+  return { hearts: newHearts, heartsLastRegen: newLast.toISOString() }
+}
+
+// ─── Firestore operations ──────────────────────────────────────────────────
+
 export async function ensureProfileDoc(uid: string): Promise<void> {
   if (!db) return
   await setDoc(
     doc(db, 'users', uid),
     {
-      profile: {
-        createdAt: serverTimestamp(),
-        locale: 'fi',
-      },
+      profile: { createdAt: serverTimestamp(), locale: 'fi' },
     },
     { merge: true },
   )
+}
+
+export async function loadUserDoc(uid: string): Promise<FirestoreUserDoc | null> {
+  if (!db) return null
+  try {
+    const snap = await getDoc(doc(db, 'users', uid))
+    if (!snap.exists()) return null
+    const data = snap.data()
+    // Firestore Timestamp → ISO string for heartsLastRegen
+    if (data.progress?.heartsLastRegen instanceof Object && 'toDate' in data.progress.heartsLastRegen) {
+      data.progress.heartsLastRegen = (data.progress.heartsLastRegen as Timestamp).toDate().toISOString()
+    }
+    return data as FirestoreUserDoc
+  } catch {
+    return null
+  }
+}
+
+export async function saveProgress(uid: string, progress: Partial<FirestoreProgress>): Promise<void> {
+  if (!db) return
+  try {
+    await setDoc(doc(db, 'users', uid), { progress }, { merge: true })
+  } catch {
+    // queued offline — Firestore SDK will retry
+  }
+}
+
+export async function saveLevelStat(uid: string, levelId: string, stat: LevelStat): Promise<void> {
+  if (!db) return
+  try {
+    await setDoc(doc(db, 'users', uid), { levelStats: { [levelId]: stat } }, { merge: true })
+  } catch {
+    // queued offline
+  }
 }
