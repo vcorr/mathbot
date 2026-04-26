@@ -18,6 +18,7 @@ export default function SettingsScreen() {
   const [googleLinked, setGoogleLinked] = useState(() => isGoogleLinked())
   const [linking, setLinking] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
+  const [linkNote, setLinkNote] = useState<string | null>(null)
 
   function toggleMute() {
     const next = !muted
@@ -28,14 +29,16 @@ export default function SettingsScreen() {
   async function handleLinkGoogle() {
     setLinking(true)
     setLinkError(null)
+    setLinkNote(null)
     const result = await linkGoogleAccount()
     setLinking(false)
     if (result.ok) {
       setGoogleLinked(true)
-    } else {
-      if (result.error !== 'auth/popup-closed-by-user' && result.error !== 'auth/cancelled-popup-request') {
-        setLinkError('Yhdistäminen epäonnistui.')
+      if (result.recovered) {
+        setLinkNote('Vanha edistymisesi on palautettu!')
       }
+    } else if (result.error !== 'auth/popup-closed-by-user' && result.error !== 'auth/cancelled-popup-request') {
+      setLinkError('Yhdistäminen epäonnistui.')
     }
   }
 
@@ -139,7 +142,8 @@ export default function SettingsScreen() {
                   ? 'Edistymisesi on varmuuskopioitu.'
                   : 'Yhdistä, niin edistymisesi säilyy laitteen vaihtuessa.'}
               </div>
-              {linkError && <div className="text-xs text-red-500 mt-1">{linkError}</div>}
+              {linkError && <div className="text-xs mt-1" style={{ color: 'var(--color-coral)' }}>{linkError}</div>}
+              {linkNote && <div className="text-xs mt-1" style={{ color: 'var(--color-mint-deep)' }}>{linkNote}</div>}
             </div>
             {googleLinked ? (
               <span
