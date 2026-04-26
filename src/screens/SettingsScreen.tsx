@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '../lib/store'
 import { playCorrect } from '../lib/audio'
+import { isFirebaseConfigured, isGoogleLinked, linkGoogleAccount } from '../lib/firebase'
 
 const GOAL_OPTIONS = [10, 20, 30, 50, 100]
 
@@ -13,10 +15,28 @@ export default function SettingsScreen() {
   const totalXp = useAppStore((s) => s.totalXp)
   const streak = useAppStore((s) => s.streak)
 
+  const [googleLinked, setGoogleLinked] = useState(() => isGoogleLinked())
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
+
   function toggleMute() {
     const next = !muted
     setMuted(next)
-    if (!next) playCorrect(false) // play a test beep when unmuting
+    if (!next) playCorrect(false)
+  }
+
+  async function handleLinkGoogle() {
+    setLinking(true)
+    setLinkError(null)
+    const result = await linkGoogleAccount()
+    setLinking(false)
+    if (result.ok) {
+      setGoogleLinked(true)
+    } else {
+      if (result.error !== 'auth/popup-closed-by-user' && result.error !== 'auth/cancelled-popup-request') {
+        setLinkError('Yhdistäminen epäonnistui.')
+      }
+    }
   }
 
   return (
@@ -105,6 +125,41 @@ export default function SettingsScreen() {
             ))}
           </div>
         </div>
+
+        {/* Google account link */}
+        {isFirebaseConfigured && (
+          <div
+            className="rounded-2xl p-4 flex items-center justify-between gap-4"
+            style={{ background: 'var(--color-surface)', border: '2px solid var(--color-line)' }}
+          >
+            <div className="min-w-0">
+              <div className="font-extrabold text-ink">Google-tili</div>
+              <div className="text-sm text-ink-soft">
+                {googleLinked
+                  ? 'Edistymisesi on varmuuskopioitu.'
+                  : 'Yhdistä, niin edistymisesi säilyy laitteen vaihtuessa.'}
+              </div>
+              {linkError && <div className="text-xs text-red-500 mt-1">{linkError}</div>}
+            </div>
+            {googleLinked ? (
+              <span
+                className="text-xs font-extrabold rounded-full px-3 py-1 flex-shrink-0"
+                style={{ background: 'var(--color-mint-soft)', color: 'var(--color-mint-deep)' }}
+              >
+                ✓ Yhdistetty
+              </span>
+            ) : (
+              <button
+                className="rounded-2xl px-4 py-2 text-sm font-extrabold text-white flex-shrink-0"
+                style={{ background: linking ? 'var(--color-line)' : 'var(--color-blue)' }}
+                onClick={handleLinkGoogle}
+                disabled={linking}
+              >
+                {linking ? '...' : 'Yhdistä'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Version */}
         <div className="text-center text-xs text-ink-soft font-extrabold mt-auto pt-4">
